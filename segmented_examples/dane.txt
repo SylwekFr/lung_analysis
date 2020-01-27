@@ -1,0 +1,2 @@
+Pierwszy slice z before nadaj¹cy siê to 32
+Pierwszy slice z after nadajêcy siê to 8
