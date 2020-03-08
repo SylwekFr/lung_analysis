@@ -1,5 +1,6 @@
 import dicom
 import os
+import math
 import numpy as np
 import collections
 import statistics
@@ -128,11 +129,13 @@ class Patient:
         after_reduced_array_indexes = list(range(self.after_start_index-1, self.after_end_index-1))
         after_significant_indexes = []
         after_significant_array = []
-
-
+        i_first_divider = math.ceil(len(after_reduced_array_indexes)/len(before_significant_indexes))
+        i_second_divider = int(len(after_reduced_array_indexes)/(len(before_significant_indexes)-round(len(after_reduced_array_indexes)/i_first_divider)))
         for i, slice in enumerate(after_reduced_array):
-            if i % 3 == 0 or i % 22 == 0 or i == 1 or i == 181:
-            # if i % 3 == 0:
+            if i % i_first_divider == 0 and i % i_second_divider == 0 and i != 0:
+                after_significant_array.append(after_reduced_array[i-1])
+                after_significant_indexes.append(after_reduced_array_indexes[i-1])
+            if i % i_first_divider == 0 or i % i_second_divider == 0:
                 after_significant_array.append(slice)
                 after_significant_indexes.append(after_reduced_array_indexes[i])
 
@@ -161,8 +164,8 @@ class Patient:
             return
 
 
-        np.save("patient2\\significant_slices\\significantBeforeArray", before_significant_array)
-        np.save("patient2\\significant_slices\\significantAfterArray", after_significant_array)
+        #np.save("patient2\\significant_slices\\significantBeforeArray", before_significant_array)
+        #np.save("patient2\\significant_slices\\significantAfterArray", after_significant_array)
 
         for i, before_slice in enumerate(before_significant_array):
             before_slice_image = sitk.GetImageFromArray(before_slice)

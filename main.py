@@ -10,12 +10,14 @@ from preprocessedImagesViewer import PreprocessedImagesViewer
 from patientElasticBSplineRegistration import PatientElasticBSplineRegistration
 import imreg_dft as ird
 import time
+import dicom
 
 import SimpleITK as sitk
 from viewer import *
 
-# data = 'Data\\'
-data = 'Data2\\'
+data = 'Data\\'
+
+example = dicom.read_file("example.dcm")
 
 print("Start patient loading")
 patient = Patient(data, [33, 102], [9, 191]) #od którego pliku z kolei licząc od 1, do którego z kolei
@@ -32,14 +34,14 @@ print("Segmentation time: " + str(segmentation_time))
 print("End SITK segmentation")
 
 
-print("Start watershed segmentation")
-patient_watershed_segmentation = PatientWatershedSegmentation(patient)
-segmentation_start = time.time()
-segmented_images = patient_watershed_segmentation.watershed_segmentation()
-segmentation_end = time.time()
-segmentation_time = segmentation_end - segmentation_start
-print("Segmentation time: " + str(segmentation_time))
-print("End watershedsegmentation")
+#print("Start watershed segmentation")
+#patient_watershed_segmentation = PatientWatershedSegmentation(patient)
+#segmentation_start = time.time()
+#segmented_images = patient_watershed_segmentation.watershed_segmentation()
+#segmentation_end = time.time()
+#segmentation_time = segmentation_end - segmentation_start
+#print("Segmentation time: " + str(segmentation_time))
+#print("End watershedsegmentation")
 
 
 # segmented_images = [np.load("patient\\segmented_slices\\segmentedBeforeArray.npy"),
@@ -65,7 +67,7 @@ print("End affine registration")
 # print("Elastic time: " + str(elastic_end-elastic_start))
 # print("End elastic registration")
 
-# elastic_registration_output = [0,1]
+elastic_registration_output = [0,1]
 
 preprocessed_images_viewer = PreprocessedImagesViewer(segmented_images, elastic_registration_output[1], patient)
 

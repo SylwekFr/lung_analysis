@@ -71,7 +71,7 @@ class PreprocessedImagesViewer:
 
         # self.display_dicom_with_full_radiation_as_heat_map(33, self.elastic_registered_image)
         # self.display_dicom_with_full_radiation_as_heat_map(33, self.patient.before_slices_image[33])
-        # self.display_dicom_with_full_radiation_as_heat_map(33, self.segmented_before_images[33])
+        self.display_dicom_with_full_radiation_as_heat_map(33, self.segmented_before_images[33])
 
         ###########################################################################
 

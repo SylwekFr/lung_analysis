@@ -17,7 +17,7 @@ def sitk_show(img, title=None, margin=0.05, dpi=40):
         plt.title(title)
 
     # plt.show()
-    plt.savefig(str(title) + ".png")
+    #plt.savefig(str(title) + ".png")
 
 
 def show_overlayed_images(img1, img2, title, folder, margin=0.05, dpi=40):
@@ -37,7 +37,7 @@ def show_overlayed_images(img1, img2, title, folder, margin=0.05, dpi=40):
     if title:
         plt.title(title)
     # plt.show()
-    plt.savefig(folder + title + ".png")
+    #plt.savefig(folder + title + ".png")
     plt.close()
 
 
