@@ -8,6 +8,7 @@ from patient import Patient
 from patientRtDose import PatientRtDose
 import numpy as np
 import SimpleITK as sitk
+import pandas as pd
 import time
 import csv
 from SeriesType import SeriesType
@@ -32,11 +33,8 @@ class PreprocessedImagesViewer:
         self.patientStructureSet = patient.patient_structure_set
         # self.elastic_registered_image = np.load("patient\\elastic_bspline_registration_fixed\\moving_resampled_arrays\\moving_elastic_array_33.npy")
         self.slice_ROIs = []
-        csvData = []
-        csvPatient = ['Patient Id', str(patient.patient_id)]
-        csvHeader = ['Series (Before/After)', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Minimum', 'Maximum', 'Median', 'Mean']
-        csvData.append(csvPatient)
-        csvData.append(csvHeader)
+        csvBeforeData = []
+        csvAfterData = []
 
 
         ###########################################################################
@@ -71,7 +69,7 @@ class PreprocessedImagesViewer:
 
         # self.display_dicom_with_full_radiation_as_heat_map(33, self.elastic_registered_image)
         # self.display_dicom_with_full_radiation_as_heat_map(33, self.patient.before_slices_image[33])
-        self.display_dicom_with_full_radiation_as_heat_map(33, self.segmented_before_images[33])
+        # self.display_dicom_with_full_radiation_as_heat_map(33, self.segmented_before_images[33])
 
         ###########################################################################
 
@@ -86,31 +84,36 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
+
         chosenROIs = ['Pluco (P)', 'Dmin']
-        summed_values = []
+        #chosenROIs = ['Pluca']
         slices_count = 0
-        empty_slices = 0
         for i, slice in enumerate(self.segmented_before_images):
-            if i % 10 == 0:
-                slices_count += 1
-                print("Slice: " + str(i))
-                # csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_with_added_rois(slice, i, 0, 0, chosenROIs, SeriesType.BEFORE.name)
-                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, 0, 0, chosenROIs, SeriesType.BEFORE.name)
-                csvData.append(csv_line)
-                if(all(value != None for value in calculated_values)):
-                    summed_values.append(calculated_values)
-                    summed_list = [sum(value) for value in zip(*summed_values)]
-                    summed_values.clear()
-                    summed_values.append(summed_list)
-                else:
-                    empty_slices += 1
-        flat_list = [item for sublist in summed_values for item in sublist]
-        mean_values = [value / (slices_count - empty_slices) for value in flat_list]
-        csvData.append(['Mean', '-', '-', '-', mean_values[0], mean_values[1], mean_values[2], mean_values[3]])
-        with open('statistics_after_common_right_lung_and_Dmin_ROI.csv', 'w', newline='') as csvFile:
-            writer = csv.writer(csvFile, delimiter=';')
-            writer.writerows(csvData)
-        csvFile.close()
+            slices_count += 1
+            print("Slice before: " + str(i))
+            csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, 5, 10                                                                                                                       , chosenROIs, SeriesType.BEFORE.name)
+            csvBeforeData.append(csv_line)
+        patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Minimum a', 'Maximum a', 'Median a', 'Mean a'])
+        for i, slice in enumerate(self.segmented_after_images):
+            slices_count += 1
+            print("Slice after: " + str(i))
+            csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, 5, 10                                                                                                               , chosenROIs, SeriesType.AFTER.name)
+            csvAfterData.append(csv_line)
+        patient_after_data_df = pd.DataFrame(csvAfterData,
+                                              columns=['Series b', 'Slice Index', 'Chosen ROIs b',
+                                                       'Radiation Range b', 'Minimum b', 'Maximum b', 'Median b', 'Mean b'])
+        patient_full_data_df = pd.merge(patient_before_data_df, patient_after_data_df, on='Slice Index')
+        patient_full_data_df = patient_full_data_df.drop('Chosen ROIs b', 1)
+        patient_full_data_df = patient_full_data_df.drop('Radiation Range b', 1)
+        patient_full_data_df['Minimum diff'] = abs(
+            patient_full_data_df['Minimum a'] - patient_full_data_df['Minimum b'])
+        patient_full_data_df['Maximum diff'] = abs(
+            patient_full_data_df['Maximum a'] - patient_full_data_df['Maximum b'])
+        patient_full_data_df['Median diff'] = abs(
+            patient_full_data_df['Median a'] - patient_full_data_df['Median b'])
+        patient_full_data_df['Mean diff'] = abs(
+            patient_full_data_df['Mean a'] - patient_full_data_df['Mean b'])
+        patient_full_data_df.to_csv('statistics_after_common_right_lung_and_Dmin_ROI.csv', sep=';', encoding='utf-8')
 
 
 
@@ -269,12 +272,12 @@ class PreprocessedImagesViewer:
         original_final_mask_to_display = original_final_mask.astype(float)
         original_final_mask_to_display[original_final_mask_to_display == 0] = np.NAN
 
-        pyplot.pcolormesh(self.patient.before_pixel_axes[0], self.patient.before_pixel_axes[1],
-                          original_final_mask_to_display, alpha=0.1, cmap='Wistia')
+        #pyplot.pcolormesh(self.patient.before_pixel_axes[0], self.patient.before_pixel_axes[1],
+                         # original_final_mask_to_display, alpha=0.1, cmap='Wistia')
 
         # self.calculate_statistic_values(original_final_mask, slice)
 
-        pyplot.show()
+        #pyplot.show()
 
         return values_to_csv, calculated_values_raw
 
@@ -342,36 +345,36 @@ class PreprocessedImagesViewer:
             [self.patient.slice_dimensions[1], self.patient.slice_dimensions[0]],
             dtype='uint16')
         CT_radiation_mask_matrix.fill(0)
+        if numpy.amax(radiation_in_range_in_slice) != 0:
+            non_zero_radiation_indexes = numpy.nonzero(radiation_in_range_in_slice)
+            print("numpy.nonzero passed")
+            upper_left_pixel_index = [non_zero_radiation_indexes[1].min(), non_zero_radiation_indexes[0].min()]
+            lower_right_pixel_index = [non_zero_radiation_indexes[1].max(), non_zero_radiation_indexes[0].max()]
 
-        non_zero_radiation_indexes = numpy.nonzero(radiation_in_range_in_slice)
+            upper_left_pixel_center_coords = self.find_rad_matrix_centers(upper_left_pixel_index[0], upper_left_pixel_index[1])
+            lower_right_pixel_center_coords = self.find_rad_matrix_centers(lower_right_pixel_index[0], lower_right_pixel_index[1])
 
-        upper_left_pixel_index = [non_zero_radiation_indexes[1].min(), non_zero_radiation_indexes[0].min()]
-        lower_right_pixel_index = [non_zero_radiation_indexes[1].max(), non_zero_radiation_indexes[0].max()]
+            idx_xmin = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_pixel_center_coords[0] - 1)
+            idx_ymin = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_pixel_center_coords[1] - 1)
+            idx_xmax = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_pixel_center_coords[0] + 1)
+            idx_ymax = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_pixel_center_coords[1] + 1)
 
-        upper_left_pixel_center_coords = self.find_rad_matrix_centers(upper_left_pixel_index[0], upper_left_pixel_index[1])
-        lower_right_pixel_center_coords = self.find_rad_matrix_centers(lower_right_pixel_index[0], lower_right_pixel_index[1])
+            half_x_spacing = self.patientRtDose.slice_pixel_spacing[0]/2
+            half_y_spacing = self.patientRtDose.slice_pixel_spacing[1]/2
 
-        idx_xmin = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_pixel_center_coords[0] - 1)
-        idx_ymin = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_pixel_center_coords[1] - 1)
-        idx_xmax = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_pixel_center_coords[0] + 1)
-        idx_ymax = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_pixel_center_coords[1] + 1)
+            centers_of_rad = []
+            for i, _ in enumerate(non_zero_radiation_indexes[0]):
+                centers_of_rad.append(self.find_rad_matrix_centers(non_zero_radiation_indexes[1][i], non_zero_radiation_indexes[0][i]))
 
-        half_x_spacing = self.patientRtDose.slice_pixel_spacing[0]/2
-        half_y_spacing = self.patientRtDose.slice_pixel_spacing[1]/2
-
-        centers_of_rad = []
-        for i, _ in enumerate(non_zero_radiation_indexes[0]):
-            centers_of_rad.append(self.find_rad_matrix_centers(non_zero_radiation_indexes[1][i], non_zero_radiation_indexes[0][i]))
-
-        sub_arr = slice[idx_ymin:idx_ymax, idx_xmin:idx_xmax]
-        analized_pixels = 0
-        for index, x in numpy.ndenumerate(sub_arr):
-            hu_coord = self.find_CT_matrix_centers(index[1] + idx_xmin, index[0] + idx_ymin)
-            for rad_pixel_center in centers_of_rad:
-                if (rad_pixel_center[0] - half_x_spacing) < hu_coord[0] < (rad_pixel_center[0] + half_x_spacing) and (rad_pixel_center[1] - half_y_spacing) < hu_coord[1] < (rad_pixel_center[1] + half_y_spacing) and slice[index[0] + idx_ymin, index[1] + idx_xmin] > - 980:
-                    CT_radiation_mask_matrix[index[0] + idx_ymin][index[1] + idx_xmin] = 1
-                    break
-            analized_pixels = analized_pixels +1
+            sub_arr = slice[idx_ymin:idx_ymax, idx_xmin:idx_xmax]
+            analized_pixels = 0
+            for index, x in numpy.ndenumerate(sub_arr):
+                hu_coord = self.find_CT_matrix_centers(index[1] + idx_xmin, index[0] + idx_ymin)
+                for rad_pixel_center in centers_of_rad:
+                    if (rad_pixel_center[0] - half_x_spacing) < hu_coord[0] < (rad_pixel_center[0] + half_x_spacing) and (rad_pixel_center[1] - half_y_spacing) < hu_coord[1] < (rad_pixel_center[1] + half_y_spacing) and slice[index[0] + idx_ymin, index[1] + idx_xmin] > - 980:
+                        CT_radiation_mask_matrix[index[0] + idx_ymin][index[1] + idx_xmin] = 1
+                        break
+                analized_pixels = analized_pixels +1
 
         return CT_radiation_mask_matrix
 
