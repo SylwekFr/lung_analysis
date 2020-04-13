@@ -84,36 +84,38 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
-
-        chosenROIs = ['Pluco (P)', 'Dmin']
-        #chosenROIs = ['Pluca']
-        slices_count = 0
-        for i, slice in enumerate(self.segmented_before_images):
-            slices_count += 1
-            print("Slice before: " + str(i))
-            csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, 5, 10                                                                                                                       , chosenROIs, SeriesType.BEFORE.name)
-            csvBeforeData.append(csv_line)
-        patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Minimum a', 'Maximum a', 'Median a', 'Mean a'])
-        for i, slice in enumerate(self.segmented_after_images):
-            slices_count += 1
-            print("Slice after: " + str(i))
-            csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, 5, 10                                                                                                               , chosenROIs, SeriesType.AFTER.name)
-            csvAfterData.append(csv_line)
-        patient_after_data_df = pd.DataFrame(csvAfterData,
-                                              columns=['Series b', 'Slice Index', 'Chosen ROIs b',
-                                                       'Radiation Range b', 'Minimum b', 'Maximum b', 'Median b', 'Mean b'])
-        patient_full_data_df = pd.merge(patient_before_data_df, patient_after_data_df, on='Slice Index')
-        patient_full_data_df = patient_full_data_df.drop('Chosen ROIs b', 1)
-        patient_full_data_df = patient_full_data_df.drop('Radiation Range b', 1)
-        patient_full_data_df['Minimum diff'] = abs(
-            patient_full_data_df['Minimum a'] - patient_full_data_df['Minimum b'])
-        patient_full_data_df['Maximum diff'] = abs(
-            patient_full_data_df['Maximum a'] - patient_full_data_df['Maximum b'])
-        patient_full_data_df['Median diff'] = abs(
-            patient_full_data_df['Median a'] - patient_full_data_df['Median b'])
-        patient_full_data_df['Mean diff'] = abs(
-            patient_full_data_df['Mean a'] - patient_full_data_df['Mean b'])
-        patient_full_data_df.to_csv('statistics_after_common_right_lung_and_Dmin_ROI.csv', sep=';', encoding='utf-8')
+        radiation_range = [[0.5,5],[5,10],[10,20],[20,30],[30,40]]
+        #chosenROIs = ['Pluco (P)', 'Dmin']
+        chosenROIs = ['Pluca']
+        for radrange in radiation_range:
+            slices_count = 0
+            for i, slice in enumerate(self.segmented_before_images):
+                slices_count += 1
+                print("Slice before: " + str(i))
+                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1]                                                                                                                       , chosenROIs, SeriesType.BEFORE.name)
+                csvBeforeData.append(csv_line)
+            patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Minimum a', 'Maximum a', 'Median a', 'Mean a'])
+            slices_count = 0
+            for i, slice in enumerate(self.segmented_after_images):
+                slices_count += 1
+                print("Slice after: " + str(i))
+                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1]                                                                                                              , chosenROIs, SeriesType.AFTER.name)
+                csvAfterData.append(csv_line)
+            patient_after_data_df = pd.DataFrame(csvAfterData,
+                                                  columns=['Series b', 'Slice Index', 'Chosen ROIs b',
+                                                           'Radiation Range b', 'Minimum b', 'Maximum b', 'Median b', 'Mean b'])
+            patient_full_data_df = pd.merge(patient_before_data_df, patient_after_data_df, on='Slice Index')
+            patient_full_data_df = patient_full_data_df.drop('Chosen ROIs b', 1)
+            patient_full_data_df = patient_full_data_df.drop('Radiation Range b', 1)
+            patient_full_data_df['Minimum diff'] = abs(
+                patient_full_data_df['Minimum a'] - patient_full_data_df['Minimum b'])
+            patient_full_data_df['Maximum diff'] = abs(
+                patient_full_data_df['Maximum a'] - patient_full_data_df['Maximum b'])
+            patient_full_data_df['Median diff'] = abs(
+                patient_full_data_df['Median a'] - patient_full_data_df['Median b'])
+            patient_full_data_df['Mean diff'] = abs(
+                patient_full_data_df['Mean a'] - patient_full_data_df['Mean b'])
+            patient_full_data_df.to_csv('statistics_range'+''.join(str(e) for e in radrange)+'.csv', sep=';', encoding='utf-8')
 
 
 
@@ -347,7 +349,6 @@ class PreprocessedImagesViewer:
         CT_radiation_mask_matrix.fill(0)
         if numpy.amax(radiation_in_range_in_slice) != 0:
             non_zero_radiation_indexes = numpy.nonzero(radiation_in_range_in_slice)
-            print("numpy.nonzero passed")
             upper_left_pixel_index = [non_zero_radiation_indexes[1].min(), non_zero_radiation_indexes[0].min()]
             lower_right_pixel_index = [non_zero_radiation_indexes[1].max(), non_zero_radiation_indexes[0].max()]
 
@@ -505,18 +506,18 @@ class PreprocessedImagesViewer:
         try:
             non_zero_mask = slice[non_zero_arrays]
 
-            mininum = non_zero_mask.min()
-            maximum = non_zero_mask.max()
+            #mininum = non_zero_mask.min()
+            #maximum = non_zero_mask.max()
             non_zero_array_dicom_in_mask_result_list = non_zero_mask.tolist()
             median_value_in_HU = statistics.median(non_zero_array_dicom_in_mask_result_list)
             mean_value_in_HU = statistics.mean(non_zero_array_dicom_in_mask_result_list)
         except ValueError:
-            mininum = None
-            maximum = None
+            #mininum = None
+            #maximum = None
             median_value_in_HU = None
             mean_value_in_HU = None
 
-        return [mininum, maximum, median_value_in_HU, mean_value_in_HU]
+        return [median_value_in_HU, mean_value_in_HU]
 
     def initialize_masks(self):
         original_size_radiation_mask = numpy.empty(
