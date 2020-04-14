@@ -33,8 +33,6 @@ class PreprocessedImagesViewer:
         self.patientStructureSet = patient.patient_structure_set
         # self.elastic_registered_image = np.load("patient\\elastic_bspline_registration_fixed\\moving_resampled_arrays\\moving_elastic_array_33.npy")
         self.slice_ROIs = []
-        csvBeforeData = []
-        csvAfterData = []
 
 
         ###########################################################################
@@ -84,17 +82,19 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
-        radiation_range = [[0.5,5],[5,10],[10,20],[20,30],[30,40]]
+        radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
         #chosenROIs = ['Pluco (P)', 'Dmin']
         chosenROIs = ['Pluca']
         for radrange in radiation_range:
+            csvBeforeData = []
+            csvAfterData = []
             slices_count = 0
             for i, slice in enumerate(self.segmented_before_images):
                 slices_count += 1
                 print("Slice before: " + str(i))
                 csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1]                                                                                                                       , chosenROIs, SeriesType.BEFORE.name)
                 csvBeforeData.append(csv_line)
-            patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Minimum a', 'Maximum a', 'Median a', 'Mean a'])
+            patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Median a', 'Mean a'])
             slices_count = 0
             for i, slice in enumerate(self.segmented_after_images):
                 slices_count += 1
@@ -103,14 +103,10 @@ class PreprocessedImagesViewer:
                 csvAfterData.append(csv_line)
             patient_after_data_df = pd.DataFrame(csvAfterData,
                                                   columns=['Series b', 'Slice Index', 'Chosen ROIs b',
-                                                           'Radiation Range b', 'Minimum b', 'Maximum b', 'Median b', 'Mean b'])
+                                                           'Radiation Range b', 'Median b', 'Mean b'])
             patient_full_data_df = pd.merge(patient_before_data_df, patient_after_data_df, on='Slice Index')
             patient_full_data_df = patient_full_data_df.drop('Chosen ROIs b', 1)
             patient_full_data_df = patient_full_data_df.drop('Radiation Range b', 1)
-            patient_full_data_df['Minimum diff'] = abs(
-                patient_full_data_df['Minimum a'] - patient_full_data_df['Minimum b'])
-            patient_full_data_df['Maximum diff'] = abs(
-                patient_full_data_df['Maximum a'] - patient_full_data_df['Maximum b'])
             patient_full_data_df['Median diff'] = abs(
                 patient_full_data_df['Median a'] - patient_full_data_df['Median b'])
             patient_full_data_df['Mean diff'] = abs(
