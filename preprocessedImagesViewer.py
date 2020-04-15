@@ -82,8 +82,7 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
-        #radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
-        radiation_range = [[5,10],[10,20],[20,30],[30,40]]
+        radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
         #chosenROIs = ['Pluco (P)', 'Dmin']
         chosenROIs = ['Pluca']
         for radrange in radiation_range:
