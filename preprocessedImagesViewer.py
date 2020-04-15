@@ -82,7 +82,8 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
-        radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
+        #radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
+        radiation_range = [[5,10],[10,20],[20,30],[30,40]]
         #chosenROIs = ['Pluco (P)', 'Dmin']
         chosenROIs = ['Pluca']
         for radrange in radiation_range:
@@ -92,15 +93,19 @@ class PreprocessedImagesViewer:
             for i, slice in enumerate(self.segmented_before_images):
                 slices_count += 1
                 print("Slice before: " + str(i))
-                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1]                                                                                                                       , chosenROIs, SeriesType.BEFORE.name)
-                csvBeforeData.append(csv_line)
+                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
+                                                                                                                          chosenROIs, SeriesType.BEFORE.name)
+                if None not in calculated_values:
+                    csvBeforeData.append(csv_line)
             patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Median a', 'Mean a'])
             slices_count = 0
             for i, slice in enumerate(self.segmented_after_images):
                 slices_count += 1
                 print("Slice after: " + str(i))
-                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1]                                                                                                              , chosenROIs, SeriesType.AFTER.name)
-                csvAfterData.append(csv_line)
+                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
+                                                                                                                          chosenROIs, SeriesType.AFTER.name)
+                if None not in calculated_values:
+                    csvAfterData.append(csv_line)
             patient_after_data_df = pd.DataFrame(csvAfterData,
                                                   columns=['Series b', 'Slice Index', 'Chosen ROIs b',
                                                            'Radiation Range b', 'Median b', 'Mean b'])
@@ -111,7 +116,7 @@ class PreprocessedImagesViewer:
                 patient_full_data_df['Median a'] - patient_full_data_df['Median b'])
             patient_full_data_df['Mean diff'] = abs(
                 patient_full_data_df['Mean a'] - patient_full_data_df['Mean b'])
-            patient_full_data_df.to_csv('statistics_range'+''.join(str(e) for e in radrange)+'.csv', sep=';', encoding='utf-8')
+            patient_full_data_df.to_csv('statistics_range'+'to'.join(str(e) for e in radrange)+'.csv', sep=';', encoding='utf-8')
 
 
 
@@ -248,7 +253,10 @@ class PreprocessedImagesViewer:
                 original_size_radiation_mask = self.prepare_original_size_radiation_mask(radiation_in_given_range_in_slice_matrix, slice)
 
             if len(chosenROIs) > 0:
-                original_size_contour_mask = self.prepare_original_size_common_contour_mask(slice, chosenROIs)
+                if numpy.amax(original_size_radiation_mask) != 0:
+                    original_size_contour_mask = self.prepare_original_size_common_contour_mask(slice, chosenROIs)
+                else:
+                    original_size_contour_mask.fill(0)
         else:
             original_size_radiation_mask.fill(0)
             original_size_contour_mask.fill(0)
