@@ -1,4 +1,4 @@
-import dicom
+import pydicom
 import os
 import numpy as np
 import collections
@@ -20,7 +20,7 @@ class PatientStructureSet:
     def get_structure_set_file(self):
         for file in self.before_RT_structure_set_data_files_paths:
             if re.search("RS", file):
-                 return dicom.read_file(file)
+                 return pydicom.read_file(file)
 
 
     def get_contours_for_all_slices(self):

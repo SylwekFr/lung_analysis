@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import operator
 import statistics
 import collections
-import dicom
 import pickle
 import time
 

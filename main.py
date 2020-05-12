@@ -10,14 +10,14 @@ from preprocessedImagesViewer import PreprocessedImagesViewer
 from patientElasticBSplineRegistration import PatientElasticBSplineRegistration
 import imreg_dft as ird
 import time
-import dicom
+import pydicom
 
 import SimpleITK as sitk
 from viewer import *
 
 data = 'Data\\'
 
-example = dicom.read_file("example.dcm")
+example = pydicom.dcmread("example.dcm", force=True)
 
 print("Start patient loading")
 patient = Patient(data, [33, 102], [9, 191]) #od którego pliku z kolei licząc od 1, do którego z kolei

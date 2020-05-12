@@ -1,4 +1,4 @@
-import dicom
+import pydicom
 import os
 import numpy as np
 import collections
@@ -35,7 +35,7 @@ class PatientRtDose:
     def get_rt_dose_file(self):
         for file in self.before_RT_Dose_data_files_paths:
             if re.search("RD", file):
-                 return dicom.read_file(file)
+                 return pydicom.read_file(file)
 
     def get_all_slices(self):
         return self.before_first_RT_Dose_file.pixel_array

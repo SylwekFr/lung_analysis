@@ -1,4 +1,4 @@
-import dicom
+import pydicom
 import os
 import math
 import numpy as np
@@ -28,8 +28,8 @@ class Patient:
 
         self.generate_file_lists(data_path)
 
-        self.before_patient_data = dicom.read_file(self.before_slices_files_paths[0])
-        self.after_patient_data = dicom.read_file(self.after_slices_files_paths[0])
+        self.before_patient_data = pydicom.read_file(self.before_slices_files_paths[0])
+        self.after_patient_data = pydicom.read_file(self.after_slices_files_paths[0])
 
         self.before_slices_image, self.before_slices = self.get_uncompressed_slices()
         self.after_slices_image, self.after_slices = self.get_compressed_slices(data_path+'after_images')
@@ -78,7 +78,7 @@ class Patient:
 
     def get_uncompressed_slices(self):
         slices_dict = {}
-        slices_full = [dicom.read_file(path) for path in self.before_slices_files_paths]
+        slices_full = [pydicom.read_file(path) for path in self.before_slices_files_paths]
         slices_full.sort(key=lambda x: int(x.InstanceNumber))
         rescale_intercept = slices_full[0].RescaleIntercept
 
@@ -99,7 +99,7 @@ class Patient:
 
     def get_compressed_slices(self, compressed_dir_path):
         slices_dict = {}
-        slices_full = [dicom.read_file(path) for path in self.after_slices_files_paths]
+        slices_full = [pydicom.read_file(path) for path in self.after_slices_files_paths]
         slices_full.sort(key=lambda x: int(x.InstanceNumber))
 
         try:

@@ -1,5 +1,4 @@
 import numpy as np  # linear algebra
-import dicom
 import os
 import scipy.ndimage as ndimage
 import matplotlib.pyplot as plt
