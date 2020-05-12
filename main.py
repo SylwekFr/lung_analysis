@@ -18,9 +18,12 @@ from viewer import *
 data = 'Data\\'
 
 example = pydicom.dcmread("example.dcm", force=True)
-
+before_start=input("enter the slice instance number you want to start with for the iRT serial")
+before_end=input("enter the slice instance number you want to end with for the iRT serial")
+after_start=input("enter the slice instance number you want to start with for the follow up serial")
+after_end=input("enter the slice instance number you want to end with for the follow up serial")
 print("Start patient loading")
-patient = Patient(data, [33, 102], [9, 191]) #od którego pliku z kolei licząc od 1, do którego z kolei
+patient = Patient(data, [int(before_start), int(before_end)], [int(after_start), int(after_end)]) #od którego pliku z kolei licząc od 1, do którego z kolei
 print("End patient loading")
 
 
