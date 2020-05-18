@@ -58,7 +58,7 @@ required on those operating systems.
 - [ ] Automation of calculation for several patient
 - [x] Data exportation to CSV 
 - [x] Performance analysis 
-- [ ] Refactoring
+- [ ] Refactoring  
 ##How to use :  
 In the root in the folder Data make 3 folders: "before_data", "before-images" and "after_images". in the folder
 before data put RS, RP and RD files, in before_images the iRT serial and in after_data the follow up serial
