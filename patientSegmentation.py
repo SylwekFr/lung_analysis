@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from patient import Patient
+from tqdm import tqdm
 import imreg_dft as ird
 
 import SimpleITK as sitk
@@ -29,76 +30,76 @@ class PatientSegmentation:
             segmentedImagesArray = []
 
             print("J is: " + str(j))
+            with tqdm(total=len(image_to_be_segmented), desc="segmentation") as segmenting_bar:
+                for i, slice in enumerate(image_to_be_segmented):
 
-            for i, slice in enumerate(image_to_be_segmented):
+                    #print("Segmenting: " + str(i))
 
-                print("Segmenting: " + str(i))
+                    image = sitk.GetImageFromArray(slice)
+                    size = image.GetSize()
 
-                image = sitk.GetImageFromArray(slice)
-                size = image.GetSize()
+                    imgSmooth = sitk.CurvatureFlow(image1=image,
+                                                   timeStep=0.125,
+                                                   numberOfIterations=5)
 
-                imgSmooth = sitk.CurvatureFlow(image1=image,
-                                               timeStep=0.125,
-                                               numberOfIterations=5)
+                    imgThresholded = imgSmooth > -300
+                    # imgThresholded = imgSmooth > -280
 
-                imgThresholded = imgSmooth > -300
-                # imgThresholded = imgSmooth > -280
+                    imgNeighborhoodConnected = sitk.NeighborhoodConnected(imgThresholded, [(3,3,3)], upper = 0, lower = 0, radius =(0,0,0), replaceValue = 1)
 
-                imgNeighborhoodConnected = sitk.NeighborhoodConnected(imgThresholded, [(3,3,3)], upper = 0, lower = 0, radius =(0,0,0), replaceValue = 1)
+                    imgSmoothInt = sitk.Cast(sitk.RescaleIntensity(imgSmooth), imgNeighborhoodConnected.GetPixelID())
 
-                imgSmoothInt = sitk.Cast(sitk.RescaleIntensity(imgSmooth), imgNeighborhoodConnected.GetPixelID())
+                    imgNeighborhoodConnectedArray = sitk.GetArrayFromImage(imgNeighborhoodConnected)
+                    imgThresholdedArray = sitk.GetArrayFromImage(imgThresholded)
 
-                imgNeighborhoodConnectedArray = sitk.GetArrayFromImage(imgNeighborhoodConnected)
-                imgThresholdedArray = sitk.GetArrayFromImage(imgThresholded)
+                    resultArray = imgNeighborhoodConnectedArray + imgThresholdedArray
+                    resultArray[resultArray > 0] = 1
 
-                resultArray = imgNeighborhoodConnectedArray + imgThresholdedArray
-                resultArray[resultArray > 0] = 1
+                    lungs = sitk.GetImageFromArray(resultArray)
+                    lungs = 1 - lungs
 
-                lungs = sitk.GetImageFromArray(resultArray)
-                lungs = 1 - lungs
+                    imgConnectedComponents = sitk.ConnectedComponent(lungs)
 
-                imgConnectedComponents = sitk.ConnectedComponent(lungs)
+                    lungs_found = []
+                    ratio = 0.0025
+                    image_size_in_pixels = np.shape(slice)[0] * np.shape(slice)[1]
+                    imgConnectedComponentsArray = sitk.GetArrayFromImage(imgConnectedComponents)
+                    imgConnectedComponentsArrayReduced = np.empty_like(imgConnectedComponentsArray)
+                    imgConnectedComponentsArrayReduced.fill(0)
+                    uniqueValues, occurCount = np.unique(imgConnectedComponentsArray, return_counts=True)
+                    uniqueValuesOccures = zip(uniqueValues, occurCount)
+                    uniqueValuesOccures = sorted(uniqueValuesOccures, key=lambda x: x[1], reverse=True)
 
-                lungs_found = []
-                ratio = 0.0025
-                image_size_in_pixels = np.shape(slice)[0] * np.shape(slice)[1]
-                imgConnectedComponentsArray = sitk.GetArrayFromImage(imgConnectedComponents)
-                imgConnectedComponentsArrayReduced = np.empty_like(imgConnectedComponentsArray)
-                imgConnectedComponentsArrayReduced.fill(0)
-                uniqueValues, occurCount = np.unique(imgConnectedComponentsArray, return_counts=True)
-                uniqueValuesOccures = zip(uniqueValues, occurCount)
-                uniqueValuesOccures = sorted(uniqueValuesOccures, key=lambda x: x[1], reverse=True)
+                    for idx, element in enumerate(uniqueValuesOccures):
+                        if element[0]!= 0 and idx < 3:
+                            # print("Lungs found: " + str(lungs_found))
+                            # print("Element number: " + str(element[0]) + ", percentage: " + str(element[1] / image_size_in_pixels))
+                            if element[1]/image_size_in_pixels > ratio and len(lungs_found)<2:
+                                imgConnectedComponentsArrayReduced[imgConnectedComponentsArray == element[0]] = 1
+                                lungs_found.append(element[0])
 
-                for idx, element in enumerate(uniqueValuesOccures):
-                    if element[0]!= 0 and idx < 3:
-                        # print("Lungs found: " + str(lungs_found))
-                        # print("Element number: " + str(element[0]) + ", percentage: " + str(element[1] / image_size_in_pixels))
-                        if element[1]/image_size_in_pixels > ratio and len(lungs_found)<2:
-                            imgConnectedComponentsArrayReduced[imgConnectedComponentsArray == element[0]] = 1
-                            lungs_found.append(element[0])
+                    imgConnectedComponentsReduced = sitk.GetImageFromArray(imgConnectedComponentsArrayReduced)
 
-                imgConnectedComponentsReduced = sitk.GetImageFromArray(imgConnectedComponentsArrayReduced)
+                    if(len(lungs_found)==0):
+                        print("No lungs in given CT image found")
+                    else:
+                        erosionDilation = sitk.BinaryMorphologicalOpening(imgConnectedComponentsReduced, openingRadius, kernel)
+                        morphologicalClosing = sitk.BinaryMorphologicalClosing(erosionDilation, closingRadius, kernel)
+                        finalResult = sitk.VotingBinaryHoleFilling(morphologicalClosing, holeFillingRadius)
+                        finalResult = sitk.BinaryErode(finalResult, erosionFinalRadius, kernel)
 
-                if(len(lungs_found)==0):
-                    print("No lungs in given CT image found")
-                else:
-                    erosionDilation = sitk.BinaryMorphologicalOpening(imgConnectedComponentsReduced, openingRadius, kernel)
-                    morphologicalClosing = sitk.BinaryMorphologicalClosing(erosionDilation, closingRadius, kernel)
-                    finalResult = sitk.VotingBinaryHoleFilling(morphologicalClosing, holeFillingRadius)
-                    finalResult = sitk.BinaryErode(finalResult, erosionFinalRadius, kernel)
+                        # sitk_show(sitk.LabelOverlay(imgSmoothInt, finalResult), title="image")
 
-                    # sitk_show(sitk.LabelOverlay(imgSmoothInt, finalResult), title="image")
+                        finalResultArray = sitk.GetArrayFromImage(finalResult)
+                        oneOriginalSliceArray = sitk.GetArrayFromImage(image)
+                        oneOriginalSliceArray[finalResultArray == 0] = -1000
+                        segmentedImagesArray.append(oneOriginalSliceArray)
+                        finalImage = sitk.GetImageFromArray(oneOriginalSliceArray)
+                        segmentedImages.append(finalImage)
 
-                    finalResultArray = sitk.GetArrayFromImage(finalResult)
-                    oneOriginalSliceArray = sitk.GetArrayFromImage(image)
-                    oneOriginalSliceArray[finalResultArray == 0] = -1000
-                    segmentedImagesArray.append(oneOriginalSliceArray)
-                    finalImage = sitk.GetImageFromArray(oneOriginalSliceArray)
-                    segmentedImages.append(finalImage)
-
-                    # print("Result on original image")
-                    # sitk_show(finalImage)
-
+                        # print("Result on original image")
+                        # sitk_show(finalImage)
+                    segmenting_bar.update(1)
             # if j==0:
             #     path_to_save = "patient\\segmented_slices\\before\\"
             #     np.save("patient\\segmented_slices\\segmentedBeforeArray", segmentedImagesArray)

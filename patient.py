@@ -93,7 +93,9 @@ class Patient:
         slices_pixel_arrays_housefield = slices_pixel_arrays + temp
         for i, slice in enumerate(slices_full):
             slices_dict[slice.InstanceNumber-1] = {'ID': slice.SOPInstanceUID,
-                                                        'SliceThickness': slice_thickness}
+                                                   'SliceThickness': slice_thickness,
+                                                   'SliceInstance': slice.InstanceNumber,
+                                                   'SliceLocation': slice.SliceLocation}
 
         return slices_pixel_arrays_housefield, slices_dict
 
@@ -167,15 +169,15 @@ class Patient:
         #np.save("patient2\\significant_slices\\significantBeforeArray", before_significant_array)
         #np.save("patient2\\significant_slices\\significantAfterArray", after_significant_array)
 
-        for i, before_slice in enumerate(before_significant_array):
-            before_slice_image = sitk.GetImageFromArray(before_slice)
-            sitk_show(before_slice_image, title="patient2\\significant_slices\\before\\slice" + str(i))
-            print("Before: " + str(i))
+        #for i, before_slice in enumerate(before_significant_array):
+        #    before_slice_image = sitk.GetImageFromArray(before_slice)
+        #    sitk_show(before_slice_image, title="patient2\\significant_slices\\before\\slice" + str(i))
+        #    print("Before: " + str(i))
 
-        for i, after_slice in enumerate(after_significant_array):
-            after_slice_image = sitk.GetImageFromArray(after_slice)
-            sitk_show(after_slice_image, title="patient2\\significant_slices\\after\\slice" + str(i))
-            print("After: " + str(i))
+        #for i, after_slice in enumerate(after_significant_array):
+        #    after_slice_image = sitk.GetImageFromArray(after_slice)
+        #    sitk_show(after_slice_image, title="patient2\\significant_slices\\after\\slice" + str(i))
+        #    print("After: " + str(i))
 
     def get_pixels_centers_axes(self):
         x_center_axis_begin = self.image_position_patient[0]

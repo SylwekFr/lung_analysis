@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from tqdm import tqdm
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import operator
@@ -78,81 +79,81 @@ class PatientAffineRegistration:
 
         global iteration_number
         iteration_number = 0
+        with tqdm(total=len(self.after_segmented_images_arrays), desc="registration") as registration_bar:
+            for index, slices in enumerate(zip(self.before_segmented_images_arrays, self.after_segmented_images_arrays)):
 
-        for index, slices in enumerate(zip(self.before_segmented_images_arrays, self.after_segmented_images_arrays)):
-            print("Registrating affine slice: " + str(index))
+                before_image = sitk.GetImageFromArray(slices[0])
+                after_image = sitk.GetImageFromArray(slices[1])
 
-            before_image = sitk.GetImageFromArray(slices[0])
-            after_image = sitk.GetImageFromArray(slices[1])
-
-            before_slice_image = sitk.Cast(before_image, sitk.sitkFloat32)
-            after_slice_image = sitk.Cast(after_image, sitk.sitkFloat32)
-
-
-            initial_transform = sitk.CenteredTransformInitializer(before_slice_image,
-                                                                  after_slice_image,
-                                                                  sitk.AffineTransform(before_slice_image.GetDimension()),
-                                                                  sitk.CenteredTransformInitializerFilter.GEOMETRY)
-
-            moving_resampled = sitk.Resample(after_slice_image, before_slice_image, initial_transform, sitk.sitkLinear,
-                                             0.0, after_slice_image.GetPixelID())
-
-            show_overlayed_images(moving_resampled, before_slice_image, "overlayed_before_affine_registration_" + str(index),
-                                  folder_path+"initial_transforms\\")
-
-            registration_method = sitk.ImageRegistrationMethod()
-
-            registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
-            registration_method.SetMetricSamplingStrategy(registration_method.REGULAR)
-            registration_method.SetMetricSamplingPercentage(1)
-
-            registration_method.SetInterpolator(sitk.sitkLinear)
-
-            # registration_method.SetOptimizerAsGradientDescent(learningRate=2, numberOfIterations=50, convergenceMinimumValue=1e-4, convergenceWindowSize=5)
-            # registration_method.SetOptimizerAsGradientDescent(learningRate=2, numberOfIterations=100, convergenceMinimumValue=1e-5, convergenceWindowSize=10)
-            registration_method.SetOptimizerAsGradientDescent(learningRate=1, numberOfIterations=255)
-
-            registration_method.SetOptimizerScalesFromPhysicalShift()
-
-            registration_method.SetShrinkFactorsPerLevel(shrinkFactors = [6,4,2,1])
-            registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[3,2,1,0])
-            registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
-
-            registration_method.SetInitialTransform(initial_transform)
+                before_slice_image = sitk.Cast(before_image, sitk.sitkFloat32)
+                after_slice_image = sitk.Cast(after_image, sitk.sitkFloat32)
 
 
-            if(save_information):
-                registration_method.AddCommand(sitk.sitkStartEvent, self.start_plot)
-                registration_method.AddCommand(sitk.sitkEndEvent, self.end_plot)
-                registration_method.AddCommand(sitk.sitkMultiResolutionIterationEvent, self.update_multires_iterations())
+                initial_transform = sitk.CenteredTransformInitializer(before_slice_image,
+                                                                      after_slice_image,
+                                                                      sitk.AffineTransform(before_slice_image.GetDimension()),
+                                                                      sitk.CenteredTransformInitializerFilter.GEOMETRY)
+
+                moving_resampled = sitk.Resample(after_slice_image, before_slice_image, initial_transform, sitk.sitkLinear,
+                                                 0.0, after_slice_image.GetPixelID())
+
+                show_overlayed_images(moving_resampled, before_slice_image, "overlayed_before_affine_registration_" + str(index),
+                                      folder_path+"initial_transforms\\")
+
+                registration_method = sitk.ImageRegistrationMethod()
+
+                registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+                registration_method.SetMetricSamplingStrategy(registration_method.REGULAR)
+                registration_method.SetMetricSamplingPercentage(1)
+
+                registration_method.SetInterpolator(sitk.sitkLinear)
+
+                # registration_method.SetOptimizerAsGradientDescent(learningRate=2, numberOfIterations=50, convergenceMinimumValue=1e-4, convergenceWindowSize=5)
+                # registration_method.SetOptimizerAsGradientDescent(learningRate=2, numberOfIterations=100, convergenceMinimumValue=1e-5, convergenceWindowSize=10)
+                registration_method.SetOptimizerAsGradientDescent(learningRate=1, numberOfIterations=255)
+
+                registration_method.SetOptimizerScalesFromPhysicalShift()
+
+                registration_method.SetShrinkFactorsPerLevel(shrinkFactors = [6,4,2,1])
+                registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[3,2,1,0])
+                registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+
+                registration_method.SetInitialTransform(initial_transform)
 
 
-                registration_method.AddCommand(sitk.sitkIterationEvent, lambda: self.save_registration_steps(folder_path, registration_method, index))
-                registration_method.AddCommand(sitk.sitkIterationEvent, lambda: self.save_one_step_images(before_slice_image,
-                                                                                                        after_slice_image,
-                                                                                                        initial_transform,
-                                                                                                        folder_path+"transformed_images\\",
-                                                                                                        index))
-            # start_patient_affine_time = time.time()
-
-            final_transform = registration_method.Execute(sitk.Cast(before_slice_image, sitk.sitkFloat32),
-                                                          sitk.Cast(after_slice_image, sitk.sitkFloat32))
-            # end_patient_affine_time = time.time()
-            # patient_affine_time = end_patient_affine_time - start_patient_affine_time
+                if(save_information):
+                    registration_method.AddCommand(sitk.sitkStartEvent, self.start_plot)
+                    registration_method.AddCommand(sitk.sitkEndEvent, self.end_plot)
+                    registration_method.AddCommand(sitk.sitkMultiResolutionIterationEvent, self.update_multires_iterations())
 
 
-            # print('Total affine 2D registration time: ' + str(patient_affine_time))
-            # print('End metric value: {0}'.format(registration_method.GetMetricValue()))
-            # print('Optimizer\'s stopping condition, {0}'.format(
-            #     registration_method.GetOptimizerStopConditionDescription()))
+                    registration_method.AddCommand(sitk.sitkIterationEvent, lambda: self.save_registration_steps(folder_path, registration_method, index))
+                    registration_method.AddCommand(sitk.sitkIterationEvent, lambda: self.save_one_step_images(before_slice_image,
+                                                                                                            after_slice_image,
+                                                                                                            initial_transform,
+                                                                                                            folder_path+"transformed_images\\",
+                                                                                                            index))
+                # start_patient_affine_time = time.time()
+                before_slice_cast = sitk.Cast(before_slice_image, sitk.sitkFloat32)
+                after_slice_cast = sitk.Cast(after_slice_image, sitk.sitkFloat32)
+                final_transform = registration_method.Execute(before_slice_cast, after_slice_cast)
+                # end_patient_affine_time = time.time()
+                # patient_affine_time = end_patient_affine_time - start_patient_affine_time
 
 
-            moving_resampled = sitk.Resample(after_slice_image, before_slice_image, final_transform, sitk.sitkLinear, 0.0, after_slice_image.GetPixelID())
+                # print('Total affine 2D registration time: ' + str(patient_affine_time))
+                # print('End metric value: {0}'.format(registration_method.GetMetricValue()))
+                # print('Optimizer\'s stopping condition, {0}'.format(
+                #     registration_method.GetOptimizerStopConditionDescription()))
 
-            # np.save(folder_path+"moving_resampled_arrays\\moving_resampled_array_" + str(index), sitk.GetArrayFromImage(moving_resampled))
-            # sitk.WriteTransform(final_transform, folder_path+"transformations\\" + "affine_transform_"+str(index)+".tfm")
 
-            final_transforms.append(final_transform)
-            moving_resampled_images.append(sitk.GetArrayFromImage(moving_resampled))
+                moving_resampled = sitk.Resample(after_slice_image, before_slice_image, final_transform, sitk.sitkLinear, 0.0, after_slice_image.GetPixelID())
+
+                # np.save(folder_path+"moving_resampled_arrays\\moving_resampled_array_" + str(index), sitk.GetArrayFromImage(moving_resampled))
+                # sitk.WriteTransform(final_transform, folder_path+"transformations\\" + "affine_transform_"+str(index)+".tfm")
+
+                final_transforms.append(final_transform)
+                moving_resampled_images.append(sitk.GetArrayFromImage(moving_resampled))
+                registration_bar.update(1)
 
         return [final_transforms, moving_resampled_images]
