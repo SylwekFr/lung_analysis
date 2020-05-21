@@ -82,29 +82,33 @@ class PreprocessedImagesViewer:
 
         # print("Only ROI's - First")
 
-        radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
+        #radiation_range = [[1,5],[5,10],[10,20],[20,30],[30,40]]
+        radiation_range = [[20, 30], [30, 40]]
         #chosenROIs = ['Pluco (P)', 'Dmin']
         chosenROIs = ['Pluca']
         for radrange in radiation_range:
             csvBeforeData = []
             csvAfterData = []
             slices_count = 0
-            for i, slice in enumerate(self.segmented_before_images):
-                slices_count += 1
-                print("Slice before: " + str(i))
-                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
-                                                                                                                          chosenROIs, SeriesType.BEFORE.name)
-                if None not in calculated_values:
-                    csvBeforeData.append(csv_line)
+            with tqdm(total=len(self.segmented_before_images), desc="before slice") as before_slice_bar:
+                for i, slice in enumerate(self.segmented_before_images):
+                    slices_count += 1
+                    #print("Slice before: " + str(i))
+                    csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
+                                                                                                                              chosenROIs, SeriesType.BEFORE.name)
+                    if None not in calculated_values:
+                        csvBeforeData.append(csv_line)
+                    before_slice_bar.update(1)
             patient_before_data_df = pd.DataFrame(csvBeforeData, columns = ['Series a', 'Slice Index', 'Chosen ROIs', 'Radiation Range', 'Median a', 'Mean a'])
             slices_count = 0
-            for i, slice in enumerate(self.segmented_after_images):
-                slices_count += 1
-                print("Slice after: " + str(i))
-                csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
-                                                                                                                          chosenROIs, SeriesType.AFTER.name)
-                if None not in calculated_values:
-                    csvAfterData.append(csv_line)
+            with tqdm(total=len(self.segmented_after_images), desc="after slice") as after_slice_bar:
+                for i, slice in enumerate(self.segmented_after_images):
+                    slices_count += 1
+                    csv_line, calculated_values = self.display_and_calculate_dicom_with_radiation_in_range_inside_common_part(slice, i, radrange[0], radrange[1],
+                                                                                                                              chosenROIs, SeriesType.AFTER.name)
+                    if None not in calculated_values:
+                        csvAfterData.append(csv_line)
+                    after_slice_bar.update(1)
             patient_after_data_df = pd.DataFrame(csvAfterData,
                                                   columns=['Series b', 'Slice Index', 'Chosen ROIs b',
                                                            'Radiation Range b', 'Median b', 'Mean b'])
@@ -367,11 +371,13 @@ class PreprocessedImagesViewer:
             half_y_spacing = self.patientRtDose.slice_pixel_spacing[1]/2
 
             centers_of_rad = []
-            for i, _ in enumerate(non_zero_radiation_indexes[0]):
-                centers_of_rad.append(self.find_rad_matrix_centers(non_zero_radiation_indexes[1][i], non_zero_radiation_indexes[0][i]))
-
+            with tqdm(total=len(non_zero_radiation_indexes[0]), desc="building radiation matrix") as rad_matrix_bar:
+                for i, _ in enumerate(non_zero_radiation_indexes[0]):
+                    centers_of_rad.append(self.find_rad_matrix_centers(non_zero_radiation_indexes[1][i], non_zero_radiation_indexes[0][i]))
+                    rad_matrix_bar.update(1)
             sub_arr = slice[idx_ymin:idx_ymax, idx_xmin:idx_xmax]
             analized_pixels = 0
+
             for index, x in numpy.ndenumerate(sub_arr):
                 hu_coord = self.find_CT_matrix_centers(index[1] + idx_xmin, index[0] + idx_ymin)
                 for rad_pixel_center in centers_of_rad:
@@ -379,6 +385,7 @@ class PreprocessedImagesViewer:
                         CT_radiation_mask_matrix[index[0] + idx_ymin][index[1] + idx_xmin] = 1
                         break
                 analized_pixels = analized_pixels +1
+
 
         return CT_radiation_mask_matrix
 
@@ -398,32 +405,33 @@ class PreprocessedImagesViewer:
             [self.patient.slice_dimensions[1], self.patient.slice_dimensions[0]],
             dtype='uint16')
         original_size_contour_mask.fill(0)
+        with tqdm(total=len(self.slice_ROIs), desc="building ROI mask") as roi_mask_bar:
+            for slice_ROI in self.slice_ROIs:
+                for chosenROI in chosenROIs:
+                    if slice_ROI['referenceROIName'] == chosenROI:
+                        if slice_ROI['contourPoints']:
 
-        for slice_ROI in self.slice_ROIs:
-            for chosenROI in chosenROIs:
-                if slice_ROI['referenceROIName'] == chosenROI:
-                    if slice_ROI['contourPoints']:
+                            upper_left_contour_pixel_cords = [min(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
+                                                         min(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
+                            lower_right_contour_pixel_cords = [max(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
+                                                          max(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
 
-                        upper_left_contour_pixel_cords = [min(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
-                                                     min(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
-                        lower_right_contour_pixel_cords = [max(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
-                                                      max(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
+                            original_array_x_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_contour_pixel_cords[0] - 1)
+                            original_array_y_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_contour_pixel_cords[1] - 1)
+                            original_array_x_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_contour_pixel_cords[0] + 1)
+                            original_array_y_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_contour_pixel_cords[1] + 1)
 
-                        original_array_x_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_contour_pixel_cords[0] - 1)
-                        original_array_y_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_contour_pixel_cords[1] - 1)
-                        original_array_x_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_contour_pixel_cords[0] + 1)
-                        original_array_y_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_contour_pixel_cords[1] + 1)
-
-                        orignal_sub_arr_containing_whole_roi = slice[original_array_y_min_index:original_array_y_max_index, original_array_x_min_index:original_array_x_max_index]
-                        analized_pixels = 0
-                        for sub_arr_pixel_index, x in numpy.ndenumerate(orignal_sub_arr_containing_whole_roi):
-                            # print(index)
-                            original_pixel_centers_coords = self.find_CT_matrix_centers(sub_arr_pixel_index[1] + original_array_x_min_index, sub_arr_pixel_index[0] + original_array_y_min_index)
-                            if inside_polygon_ray_tracing(original_pixel_centers_coords[0], original_pixel_centers_coords[1], slice_ROI['contourPoints'][0]) and slice[sub_arr_pixel_index[0] + original_array_y_min_index, sub_arr_pixel_index[1] + original_array_x_min_index] > -980:
-                                original_size_contour_mask[sub_arr_pixel_index[0] + original_array_y_min_index][sub_arr_pixel_index[1] + original_array_x_min_index] = 1
-                            analized_pixels = analized_pixels + 1
-                            # print(str(analized_pixels) + "/" + str(orignal_sub_arr_containing_whole_roi.size))
-                    break
+                            orignal_sub_arr_containing_whole_roi = slice[original_array_y_min_index:original_array_y_max_index, original_array_x_min_index:original_array_x_max_index]
+                            analized_pixels = 0
+                            for sub_arr_pixel_index, x in numpy.ndenumerate(orignal_sub_arr_containing_whole_roi):
+                                # print(index)
+                                original_pixel_centers_coords = self.find_CT_matrix_centers(sub_arr_pixel_index[1] + original_array_x_min_index, sub_arr_pixel_index[0] + original_array_y_min_index)
+                                if inside_polygon_ray_tracing(original_pixel_centers_coords[0], original_pixel_centers_coords[1], slice_ROI['contourPoints'][0]) and slice[sub_arr_pixel_index[0] + original_array_y_min_index, sub_arr_pixel_index[1] + original_array_x_min_index] > -980:
+                                    original_size_contour_mask[sub_arr_pixel_index[0] + original_array_y_min_index][sub_arr_pixel_index[1] + original_array_x_min_index] = 1
+                                analized_pixels = analized_pixels + 1
+                                # print(str(analized_pixels) + "/" + str(orignal_sub_arr_containing_whole_roi.size))
+                        break
+                roi_mask_bar.update(1)
 
         return original_size_contour_mask
 
@@ -433,32 +441,33 @@ class PreprocessedImagesViewer:
             [self.patient.slice_dimensions[1], self.patient.slice_dimensions[0]],
             dtype='uint16')
         original_size_common_contour_mask.fill(0)
+        with tqdm(total=len(self.slice_ROIs), desc="building contour mask") as contour_mask_bar:
+            for slice_ROI in self.slice_ROIs:
+                for i, chosenROI in enumerate(chosenROIs):
+                    if slice_ROI['referenceROIName'] == chosenROI:
+                        if slice_ROI['contourPoints']:
 
-        for slice_ROI in self.slice_ROIs:
-            for i, chosenROI in enumerate(chosenROIs):
-                if slice_ROI['referenceROIName'] == chosenROI:
-                    if slice_ROI['contourPoints']:
+                            upper_left_contour_pixel_cords = [min(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
+                                                         min(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
+                            lower_right_contour_pixel_cords = [max(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
+                                                          max(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
 
-                        upper_left_contour_pixel_cords = [min(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
-                                                     min(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
-                        lower_right_contour_pixel_cords = [max(slice_ROI['contourPoints'][0], key=itemgetter(0))[0],
-                                                      max(slice_ROI['contourPoints'][0], key=itemgetter(1))[1]]
+                            original_array_x_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_contour_pixel_cords[0] - 1)
+                            original_array_y_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_contour_pixel_cords[1] - 1)
+                            original_array_x_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_contour_pixel_cords[0] + 1)
+                            original_array_y_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_contour_pixel_cords[1] + 1)
 
-                        original_array_x_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], upper_left_contour_pixel_cords[0] - 1)
-                        original_array_y_min_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], upper_left_contour_pixel_cords[1] - 1)
-                        original_array_x_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[0], lower_right_contour_pixel_cords[0] + 1)
-                        original_array_y_max_index = find_nearest_point_index(self.patient.before_pixel_centers_axes[1], lower_right_contour_pixel_cords[1] + 1)
+                            orignal_sub_arr_containing_whole_roi = slice[original_array_y_min_index:original_array_y_max_index, original_array_x_min_index:original_array_x_max_index]
+                            analized_pixels = 0
+                            for sub_arr_pixel_index, x in numpy.ndenumerate(orignal_sub_arr_containing_whole_roi):
+                                original_pixel_centers_coords = self.find_CT_matrix_centers(sub_arr_pixel_index[1] + original_array_x_min_index, sub_arr_pixel_index[0] + original_array_y_min_index)
+                                if inside_polygon_ray_tracing(original_pixel_centers_coords[0], original_pixel_centers_coords[1], slice_ROI['contourPoints'][0]) and slice[sub_arr_pixel_index[0] + original_array_y_min_index, sub_arr_pixel_index[1] + original_array_x_min_index] > -980:
+                                        original_size_common_contour_mask[sub_arr_pixel_index[0] + original_array_y_min_index][sub_arr_pixel_index[1] + original_array_x_min_index] += 1
 
-                        orignal_sub_arr_containing_whole_roi = slice[original_array_y_min_index:original_array_y_max_index, original_array_x_min_index:original_array_x_max_index]
-                        analized_pixels = 0
-                        for sub_arr_pixel_index, x in numpy.ndenumerate(orignal_sub_arr_containing_whole_roi):
-                            original_pixel_centers_coords = self.find_CT_matrix_centers(sub_arr_pixel_index[1] + original_array_x_min_index, sub_arr_pixel_index[0] + original_array_y_min_index)
-                            if inside_polygon_ray_tracing(original_pixel_centers_coords[0], original_pixel_centers_coords[1], slice_ROI['contourPoints'][0]) and slice[sub_arr_pixel_index[0] + original_array_y_min_index, sub_arr_pixel_index[1] + original_array_x_min_index] > -980:
-                                    original_size_common_contour_mask[sub_arr_pixel_index[0] + original_array_y_min_index][sub_arr_pixel_index[1] + original_array_x_min_index] += 1
-
-                            analized_pixels = analized_pixels + 1
-                            print(str(analized_pixels) + "/" + str(orignal_sub_arr_containing_whole_roi.size))
-                    break
+                                analized_pixels = analized_pixels + 1
+                                #print(str(analized_pixels) + "/" + str(orignal_sub_arr_containing_whole_roi.size))
+                        break
+                contour_mask_bar.update(1)
 
         tmp_common_contour_mask = original_size_common_contour_mask == np.amax(original_size_common_contour_mask)
         return tmp_common_contour_mask.astype(np.uint16)
